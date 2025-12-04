@@ -5,13 +5,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_bdata(bdata, label_vlim=None):
+def plot_bdata(
+    bdata,
+    label_vlim=None,
+    pos_label="pos",
+    vel_label="vel",
+    x_coord="vel",
+):
+    if x_coord not in ("vel", "pos"):
+        raise ValueError("x_coord must be 'vel' or 'pos'")
+
+    y_coord = "pos" if x_coord == "vel" else "vel"
+    x_label = vel_label if x_coord == "vel" else pos_label
+    y_label = pos_label if x_coord == "vel" else vel_label
+    x_unit = u.km / u.s if x_coord == "vel" else u.kpc
+    y_unit = u.kpc if x_coord == "vel" else u.km / u.s
+
     fig, axes = plt.subplots(
         1, 3, figsize=(15, 5), constrained_layout=True, sharex=True, sharey=True
     )
     cs = axes[0].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         bdata["counts"],
         norm=mpl.colors.LogNorm(),
         cmap="Greys",
@@ -21,8 +36,8 @@ def plot_bdata(bdata, label_vlim=None):
     if label_vlim is None:
         label_vlim = (None, None)
     cs = axes[1].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         bdata["label"],
         vmin=label_vlim[0],
         vmax=label_vlim[1],
@@ -30,8 +45,8 @@ def plot_bdata(bdata, label_vlim=None):
     fig.colorbar(cs, ax=axes[1])
 
     cs = axes[2].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         bdata["label_err"],
         norm=mpl.colors.LogNorm(),
         cmap="Blues",
@@ -43,8 +58,8 @@ def plot_bdata(bdata, label_vlim=None):
     axes[2].set_title("Label error")
 
     for ax in axes:
-        ax.set_xlabel("$v_z$ [km/s]")
-    axes[0].set_ylabel("$z$ [kpc]")
+        ax.set_xlabel(f"{x_label} [{x_unit:latex_inline}]")
+    axes[0].set_ylabel(f"{y_label} [{y_unit:latex_inline}]")
 
     return fig, axes
 
@@ -91,14 +106,26 @@ def plot_data_model_residual(
     model,
     bdata,
     params,
-    zlim,
-    vzlim=None,
+    pos_lim,
+    vel_lim=None,
     aspect=True,
     residual_sigma_lim=3.0,
     subplots_kwargs=None,
     suptitle1="Demonstration with Simulated Data:",
     suptitle2="",
+    pos_label="pos",
+    vel_label="vel",
+    x_coord="vel",
 ):
+    if x_coord not in ("vel", "pos"):
+        raise ValueError("x_coord must be 'vel' or 'pos'")
+
+    y_coord = "pos" if x_coord == "vel" else "vel"
+    x_label = vel_label if x_coord == "vel" else pos_label
+    y_label = pos_label if x_coord == "vel" else vel_label
+    x_unit = u.km / u.s if x_coord == "vel" else u.kpc
+    y_unit = u.kpc if x_coord == "vel" else u.km / u.s
+
     title_fontsize = 20
     title_pad = 10
 
@@ -107,12 +134,12 @@ def plot_data_model_residual(
     mgfe_cbar_vlim = (-0.05, 0.18)
 
     tmp_aaf = model.compute_action_angle(
-        np.atleast_1d(zlim) * 0.75, [0.0] * u.km / u.s, params
+        np.atleast_1d(pos_lim) * 0.75, [0.0] * u.km / u.s, params
     )
     Omega = tmp_aaf["Omega"][0]
-    if vzlim is None:
-        vzlim = zlim * Omega
-    vzlim = vzlim.to_value(u.km / u.s, u.dimensionless_angles())
+    if vel_lim is None:
+        vel_lim = pos_lim * Omega
+    vel_lim = vel_lim.to_value(u.km / u.s, u.dimensionless_angles())
 
     if subplots_kwargs is None:
         subplots_kwargs = dict()
@@ -123,8 +150,8 @@ def plot_data_model_residual(
     fig, axes = plt.subplots(1, 4, **subplots_kwargs)
 
     cs = axes[0].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         bdata["counts"],
         cmap="Blues",
         rasterized=True,
@@ -136,8 +163,8 @@ def plot_data_model_residual(
     cb.ax.yaxis.set_tick_params(labelsize=14)
 
     cs = axes[1].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         bdata["label"],
         cmap="magma",
         rasterized=True,
@@ -152,8 +179,8 @@ def plot_data_model_residual(
 
     model_mgfe = np.array(model._get_label(bdata["pos"], bdata["vel"], params))
     cs = axes[2].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         model_mgfe,
         cmap="magma",
         rasterized=True,
@@ -162,8 +189,8 @@ def plot_data_model_residual(
     )
 
     cs = axes[3].pcolormesh(
-        bdata["vel"].to_value(u.km / u.s),
-        bdata["pos"].to_value(u.kpc),
+        bdata[x_coord].to_value(x_unit),
+        bdata[y_coord].to_value(y_unit),
         (bdata["label"] - model_mgfe) / bdata["label_err"] / np.sqrt(2),
         cmap="RdBu_r",
         vmin=-residual_sigma_lim,
@@ -182,12 +209,12 @@ def plot_data_model_residual(
     fig.suptitle(f"{suptitle1} {suptitle2}", fontsize=20)
 
     # Labels
-    axes[0].set_ylabel(f"$z$ [{u.kpc:latex_inline}]")
+    axes[0].set_ylabel(f"{y_label} [{y_unit:latex_inline}]")
     for ax in axes:
-        ax.set_xlabel(f"$v_z$ [{u.km/u.s:latex_inline}]")
+        ax.set_xlabel(f"{x_label} [{x_unit:latex_inline}]")
 
     # Ticks
-    if vzlim >= 100:
+    if vel_lim >= 100:
         axes[0].set_xticks(np.arange(-300, 300 + 1, 100))
         axes[0].set_xticks(np.arange(-300, 300 + 1, 50), minor=True)
     else:
@@ -199,11 +226,19 @@ def plot_data_model_residual(
     if aspect:
         aspect_val = Omega.to_value(u.km / u.s / u.kpc, u.dimensionless_angles())
 
+    # Determine x and y limits based on which coordinate is on which axis
+    if x_coord == "vel":
+        x_lim = vel_lim
+        y_lim = pos_lim.to_value(u.kpc)
+    else:
+        x_lim = pos_lim.to_value(u.kpc)
+        y_lim = vel_lim
+
     for ax in axes:
         if aspect:
             ax.set_aspect(aspect_val)
-        ax.set_xlim(-vzlim, vzlim)
-        ax.set_ylim(-zlim.to_value(u.kpc), zlim.to_value(u.kpc))
+        ax.set_xlim(-x_lim, x_lim)
+        ax.set_ylim(-y_lim, y_lim)
 
     return fig, axes
 
@@ -257,7 +292,7 @@ def plot_az_Jz(
     ax.set_xlabel(f"vertical position, $z$ [{u.kpc:latex}]")
     ax.set_ylabel(
         f"vertical acceleration, $a_z$\n"
-        f"[{u.km/u.s:latex_inline} {u.Myr**-1:latex_inline}]"
+        f"[{u.km / u.s:latex_inline} {u.Myr**-1:latex_inline}]"
     )
     ax.set_title("acceleration profile")
 
@@ -297,7 +332,25 @@ def plot_az_Jz(
     return fig, axes
 
 
-def plot_orbit_shapes(model, params, true_orbit_zvzs, zlim, vzlim, ax=None):
+def plot_orbit_shapes(
+    model,
+    params,
+    true_orbit_zvzs,
+    pos_lim,
+    vel_lim,
+    ax=None,
+    pos_label="pos",
+    vel_label="vel",
+    x_coord="vel",
+):
+    if x_coord not in ("vel", "pos"):
+        raise ValueError("x_coord must be 'vel' or 'pos'")
+
+    x_label = vel_label if x_coord == "vel" else pos_label
+    y_label = pos_label if x_coord == "vel" else vel_label
+    x_unit = u.km / u.s if x_coord == "vel" else u.kpc
+    y_unit = u.kpc if x_coord == "vel" else u.km / u.s
+
     if ax is None:
         fig, ax = plt.subplots()
     else:
@@ -324,29 +377,49 @@ def plot_orbit_shapes(model, params, true_orbit_zvzs, zlim, vzlim, ax=None):
         else:
             kw1 = {}
             kw2 = {}
-        ax.plot(oti_vv, oti_pp, marker="", ls="-", color="k", zorder=4, **kw1)
 
-        ax.plot(
-            (true_vz * u.kpc / u.Myr).to_value(u.km / u.s),
-            true_z,
-            marker="",
-            color="tab:green",
-            ls="--",
-            zorder=10,
-            **kw2,
-        )
+        if x_coord == "vel":
+            ax.plot(oti_vv, oti_pp, marker="", ls="-", color="k", zorder=4, **kw1)
+            ax.plot(
+                (true_vz * u.kpc / u.Myr).to_value(u.km / u.s),
+                true_z,
+                marker="",
+                color="tab:green",
+                ls="--",
+                zorder=10,
+                **kw2,
+            )
+        else:
+            ax.plot(oti_pp, oti_vv, marker="", ls="-", color="k", zorder=4, **kw1)
+            ax.plot(
+                true_z,
+                (true_vz * u.kpc / u.Myr).to_value(u.km / u.s),
+                marker="",
+                color="tab:green",
+                ls="--",
+                zorder=10,
+                **kw2,
+            )
 
     # Labels
-    ax.set_ylabel(f"vertical position, $z$ [{u.kpc:latex_inline}]")
-    ax.set_xlabel(f"vertical velocity, $v_z$ [{u.km/u.s:latex_inline}]")
+    ax.set_ylabel(f"{y_label} [{y_unit:latex_inline}]")
+    ax.set_xlabel(f"{x_label} [{x_unit:latex_inline}]")
 
-    # Ticks
-    ax.set_xticks(np.arange(-200, 200 + 1, 100))
-    ax.set_xticks(np.arange(-200, 200 + 1, 50), minor=True)
-    ax.set_yticks(np.arange(-3, 3 + 1e-3, 1))
-    ax.set_yticks(np.arange(-3, 3 + 1e-3, 0.5), minor=True)
-    ax.set_xlim(vzlim)
-    ax.set_ylim(zlim)
+    # Ticks and limits depend on which coordinate is on which axis
+    if x_coord == "vel":
+        ax.set_xticks(np.arange(-200, 200 + 1, 100))
+        ax.set_xticks(np.arange(-200, 200 + 1, 50), minor=True)
+        ax.set_yticks(np.arange(-3, 3 + 1e-3, 1))
+        ax.set_yticks(np.arange(-3, 3 + 1e-3, 0.5), minor=True)
+        ax.set_xlim(vel_lim)
+        ax.set_ylim(pos_lim)
+    else:
+        ax.set_xticks(np.arange(-3, 3 + 1e-3, 1))
+        ax.set_xticks(np.arange(-3, 3 + 1e-3, 0.5), minor=True)
+        ax.set_yticks(np.arange(-200, 200 + 1, 100))
+        ax.set_yticks(np.arange(-200, 200 + 1, 50), minor=True)
+        ax.set_xlim(pos_lim)
+        ax.set_ylim(vel_lim)
     ax.set_title("orbit shapes")
     ax.legend(loc="lower left", fontsize=16).set_zorder(10)
 
